@@ -19,11 +19,12 @@ Then:
 
 import os
 import requests
+from dotenv import load_dotenv
 from app.sources.jira import normalize_jira_payload
 
-from dotenv import load_dotenv
-
-load_dotenv()
+load_dotenv()  # reads .env in the current working directory and populates
+# os.environ automatically - this is the missing piece. No more manual
+# `export $(cat .env | xargs)` needed; just have a .env file present.
 
 
 def fetch_recent_issues(max_results: int = 5) -> list[dict]:
@@ -37,7 +38,7 @@ def fetch_recent_issues(max_results: int = 5) -> list[dict]:
         params={
             "jql": f"project = {project_key} ORDER BY created DESC",
             "maxResults": max_results,
-            "fields": "summary,description,reporter,created",
+            "fields": "key,summary,description,reporter,created",
         },
         auth=(email, token),
         headers={"Accept": "application/json"},

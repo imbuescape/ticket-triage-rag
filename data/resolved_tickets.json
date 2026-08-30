@@ -1,0 +1,86 @@
+[
+  {
+    "ticket_id": "ZD-100",
+    "subject": "CSV export button unresponsive",
+    "description": "User clicks export to csv on reports page, nothing happens, no error shown",
+    "resolution": "Known bug in report cache. Fix: clear browser cache, or ask user to use the 'Export as XLSX' alternative button while we ship the patch in v2.4.1."
+  },
+  {
+    "ticket_id": "ZD-101",
+    "subject": "Cannot reset password",
+    "description": "Password reset email never arrives, checked spam folder",
+    "resolution": "Email delivery delay on our provider's side. Ask user to wait 15 min, or manually trigger reset via admin panel if urgent."
+  },
+  {
+    "ticket_id": "ZD-102",
+    "subject": "Download report fails silently",
+    "description": "Trying to download the monthly report as csv, button does nothing at all",
+    "resolution": "Same root cause as report cache bug. Fix: clear browser cache, or use 'Export as XLSX' alternative while patch v2.4.1 ships."
+  },
+  {
+    "ticket_id": "ZD-103",
+    "subject": "Invoice PDF shows wrong total",
+    "description": "Downloaded invoice for last month shows a total that doesn't match the dashboard summary",
+    "resolution": "Currency rounding bug in invoice generator for accounts with mid-cycle plan changes. Escalated to billing team, fix in v2.5.0. For now, manually recalculate and note discrepancy in the ticket."
+  },
+  {
+    "ticket_id": "ENG-193",
+    "subject": "Rate limiter drops requests under 50 req/s",
+    "description": "Load test shows ~12% of requests returning 429 even well under our documented rate limit",
+    "resolution": "Token bucket refill was using wall-clock time instead of monotonic clock, causing drift under load. Fixed in PR #4821, switched to monotonic timer."
+  },
+  {
+    "ticket_id": "ZD-104",
+    "subject": "Mobile app crashes on login",
+    "description": "iOS app crashes immediately after entering credentials and tapping login, happens every time on iPhone 14",
+    "resolution": "Null pointer in the biometric-prompt code path on iOS 18.1 specifically. Hotfix shipped in app v3.2.1 - ask user to update from App Store."
+  },
+  {
+    "ticket_id": "ZD-105",
+    "subject": "Notification settings keep resetting",
+    "description": "Every time I log in on a new device, my email notification preferences go back to default (all on)",
+    "resolution": "Notification prefs are stored per-device instead of per-account. This is a known limitation, not a bug - documented workaround: set prefs once per device you use."
+  },
+  {
+    "ticket_id": "ENG-201",
+    "subject": "Webhook retries causing duplicate database rows",
+    "description": "Seeing duplicate order records when the payment provider's webhook times out and retries",
+    "resolution": "Missing idempotency key check on the webhook handler. Fixed by hashing the webhook payload and using it as a dedup key with a 24h TTL cache."
+  },
+  {
+    "ticket_id": "ZD-106",
+    "subject": "Export contacts list to CSV unresponsive",
+    "description": "On the contacts page, clicking the CSV export icon does nothing, no download starts and no error appears",
+    "resolution": "Unrelated to the reports-page export bug. This is a separate, older known issue in the contacts module - permissions check silently fails for accounts without the 'data-export' role. Fix: grant the role in admin settings."
+  },
+  {
+    "ticket_id": "ZD-107",
+    "subject": "Account locked after 5 failed login attempts",
+    "description": "User tried the wrong password a few times and now sees 'account locked, try again in 24 hours' - they know their correct password now",
+    "resolution": "This is expected brute-force protection behavior, not a bug. Support can manually unlock via admin panel if the user is verified; do not disable the lockout policy."
+  },
+  {
+    "ticket_id": "ZD-108",
+    "subject": "CSV export function isn't responding when clicked",
+    "description": "Clicked the export to csv button on the reports section, page just sits there, nothing downloads",
+    "resolution": "Known bug in report cache. Fix: clear browser cache, or ask user to use the 'Export as XLSX' alternative button while we ship the patch in v2.4.1."
+  },
+  {
+    "ticket_id": "ZD-109",
+    "subject": "Nothing is working",
+    "description": "The whole thing is broken, please help, I don't know what's going on",
+    "resolution": "No specific technical detail provided. Standard triage response: asked user for screenshots, browser/OS, and specific page where the issue occurs. Escalate to human agent - insufficient info for any automated match."
+  },
+  {
+    "ticket_id": "ZD-110",
+    "subject": "API calls keep failing randomly during high traffic",
+    "description": "Our integration gets error 429 Too Many Requests even though we're staying under the documented rate limit, especially during our peak hours",
+    "resolution": "Confirmed backend bug: rate limiter's token bucket was drifting under load due to wall-clock timing. Fixed in the same release as ENG-193 (PR #4821) - ask customer to confirm resolved after next deploy."
+  },
+  {
+    "ticket_id": "ZD-111",
+    "subject": "Customers charged twice for the same order",
+    "description": "Multiple customers reporting duplicate charges on their card for a single purchase, seems to happen more during checkout page slowness",
+    "resolution": "Root cause: payment webhook retries were creating duplicate order records due to missing idempotency check (same underlying bug as ENG-201). Refund duplicate charges manually until the idempotency-key fix is deployed."
+  }
+]

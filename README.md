@@ -1,5 +1,3 @@
-# Ticket Triage - Phase 1
-
 ## What's built so far
 - `app/models.py` - the normalized `Ticket` schema every source maps into
 - `app/sources/zendesk.py` - Zendesk payload normalizer
@@ -23,13 +21,11 @@ curl -X POST http://localhost:8000/webhooks/zendesk \
   -d @data/mock_zendesk_ticket.json
 ```
 
-## Try the real Jira integration (on your machine, not this sandbox)
+If something looks wrong (0 results, auth errors), run the diagnostic:
 ```
-cp .env.example .env   # fill in your Jira demo credentials
-export $(cat .env | xargs)
-python -m app.sources.jira_client
+python -m app.sources.jira_debug
 ```
 
-## Next: Phase 2
-Build the "resolved tickets" knowledge base - seed a handful of past
-resolved tickets, turn them into vectors with TF-IDF, store in ChromaDB.
+python -m scripts.seed_knowledge_base   # one-time: downloads model, embeds seed data
+python -m scripts.query_demo            # test retrieval quality
+```

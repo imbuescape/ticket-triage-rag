@@ -7,3 +7,4 @@ python-dotenv
 chromadb
 scikit-learn
 numpy
+fastembed
