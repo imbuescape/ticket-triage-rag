@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+anthropic
+requests
+python-dotenv
+chromadb
+scikit-learn
+numpy

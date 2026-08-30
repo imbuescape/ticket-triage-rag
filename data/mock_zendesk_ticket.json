@@ -1,0 +1,15 @@
+{
+  "ticket": {
+    "id": 48213,
+    "subject": "Export to CSV button does nothing",
+    "description": "I click 'Export to CSV' on the reports page and nothing happens. No download, no error message. This is on Chrome, latest version. I need this for my monthly report due tomorrow.",
+    "status": "open",
+    "priority": "high",
+    "requester": {
+      "email": "jane.doe@customerco.com",
+      "name": "Jane Doe"
+    },
+    "created_at": "2026-08-27T14:32:00Z",
+    "tags": ["export", "reports", "bug"]
+  }
+}
