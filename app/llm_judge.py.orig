@@ -1,0 +1,112 @@
+from pydantic import BaseModel
+from typing import Literal
+from anthropic import Anthropic
+
+from app.models import Ticket
+
+
+class TriageDecision(BaseModel):
+    matched_ticket_id: str | None  # None if no candidate genuinely applies
+    confidence: int  # 0-100, the model's own calibrated estimate
+    reasoning: str  # why - this is what makes the decision auditable
+    recommended_action: Literal["auto_resolve", "escalate_to_human"]
+    customer_facing_draft: str | None  # only populated if auto_resolve
+
+
+_TOOL_SCHEMA = {
+    "name": "submit_triage_decision",
+    "description": "Submit a structured triage decision for this ticket.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "matched_ticket_id": {
+                "type": ["string", "null"],
+                "description": "ID of the past ticket whose resolution genuinely "
+                                "applies here, or null if none of the candidates "
+                                "actually address the same root cause.",
+            },
+            "confidence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Your calibrated confidence that matched_ticket_id's "
+                                "resolution correctly resolves the new ticket. Base "
+                                "this on whether the ROOT CAUSE matches, not on how "
+                                "similar the wording looks.",
+            },
+            "reasoning": {
+                "type": "string",
+                "description": "1-3 sentences: why this match does or doesn't hold up. "
+                                "Explicitly note if a high-similarity candidate was "
+                                "rejected because the actual problem differs.",
+            },
+            "recommended_action": {
+                "type": "string",
+                "enum": ["auto_resolve", "escalate_to_human"],
+            },
+            "customer_facing_draft": {
+                "type": ["string", "null"],
+                "description": "A customer-facing response draft, only if "
+                                "recommended_action is auto_resolve. Otherwise null.",
+            },
+        },
+        "required": ["matched_ticket_id", "confidence", "reasoning",
+                      "recommended_action", "customer_facing_draft"],
+    },
+}
+
+
+def _build_prompt(ticket: Ticket, matches: list[dict]) -> str:
+    candidates_block = "\n\n".join(
+        f"Candidate {i+1} (ID: {m['ticket_id']}, retrieval_distance: {m['distance']:.4f}):\n"
+        f"  Subject: {m['subject']}\n"
+        f"  Resolution: {m['resolution']}"
+        for i, m in enumerate(matches)
+    )
+
+    return f"""You are triaging a new support/bug ticket against a knowledge base
+of past resolved tickets.
+
+NEW TICKET (source: {ticket.source}, id: {ticket.source_id}):
+  Subject: {ticket.subject}
+  Description: {ticket.description}
+
+CANDIDATE PAST RESOLUTIONS (retrieved by vector similarity, ranked by
+distance - LOWER distance means more similar WORDING, but similarity in
+wording is NOT proof the underlying problem is the same. A low-distance
+candidate can still be the wrong match if it addresses a different root
+cause. A vague new ticket can spuriously match another vague past ticket
+even when there's no shared technical content - watch for this.):
+
+{candidates_block}
+
+Decide: does any candidate's resolution genuinely apply to the new
+ticket's actual root cause? If yes, which one, and how confident are
+you? If none genuinely apply - including if the closest match only
+shares surface wording or vagueness rather than substance - say so and
+recommend escalation instead of forcing a match.
+
+Call submit_triage_decision with your answer."""
+
+
+class TriageJudge:
+    def __init__(self, anthropic_client: Anthropic | None = None, model: str = "claude-sonnet-5"):
+        # Real usage: leave anthropic_client=None, it builds a real client
+        # (reads ANTHROPIC_API_KEY from env automatically).
+        # Tests: pass in a fake client - see tests/test_llm_judge.py.
+        self._client = anthropic_client or Anthropic()
+        self._model = model
+
+    def judge(self, ticket: Ticket, matches: list[dict]) -> TriageDecision:
+        prompt = _build_prompt(ticket, matches)
+
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=1024,
+            tools=[_TOOL_SCHEMA],
+            tool_choice={"type": "tool", "name": "submit_triage_decision"},
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        tool_use_block = next(b for b in response.content if b.type == "tool_use")
+        return TriageDecision(**tool_use_block.input)

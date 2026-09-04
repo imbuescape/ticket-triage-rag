@@ -1,0 +1,121 @@
+"""
+Run: venv/bin/python tests/test_llm_judge.py
+
+Tests the prompt-building and response-parsing logic WITHOUT a real
+Anthropic API call, by injecting a fake client that returns a canned
+tool_use response.
+"""
+
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from app.llm_judge import TriageJudge, TriageDecision
+from app.models import Ticket
+from datetime import datetime
+
+
+class FakeToolUseBlock:
+    def __init__(self, input_dict):
+        self.type = "tool_use"
+        self.input = input_dict
+
+
+class FakeResponse:
+    def __init__(self, content):
+        self.content = content
+
+
+class FakeMessagesAPI:
+    def __init__(self, canned_input: dict):
+        self._canned_input = canned_input
+        self.last_call_kwargs = None  # so we can inspect what prompt was sent
+
+    def create(self, **kwargs):
+        self.last_call_kwargs = kwargs
+        return FakeResponse(content=[FakeToolUseBlock(self._canned_input)])
+
+
+class FakeAnthropicClient:
+    def __init__(self, canned_input: dict):
+        self.messages = FakeMessagesAPI(canned_input)
+
+
+def run():
+    ticket = Ticket(
+        source="zendesk",
+        source_id="48213",
+        subject="Export to CSV button does nothing",
+        description="I click 'Export to CSV' on the reports page and nothing happens.",
+        requester_email="jane.doe@customerco.com",
+        created_at=datetime.now(),
+    )
+
+    matches = [
+        {"ticket_id": "ZD-100", "subject": "CSV export button unresponsive",
+         "resolution": "Known bug in report cache. Fix: clear browser cache.",
+         "distance": 0.05},
+        {"ticket_id": "ZD-106", "subject": "Export contacts list to CSV unresponsive",
+         "resolution": "Separate contacts-module permissions bug.", "distance": 0.35},
+    ]
+
+    print("=" * 60)
+    print("TEST 1: Judge correctly parses a canned auto_resolve decision")
+    print("=" * 60)
+
+    canned = {
+        "matched_ticket_id": "ZD-100",
+        "confidence": 92,
+        "reasoning": "Same root cause: report cache bug on the reports export button.",
+        "recommended_action": "auto_resolve",
+        "customer_facing_draft": "This is a known issue - please clear your browser cache.",
+    }
+    fake_client = FakeAnthropicClient(canned)
+    judge = TriageJudge(anthropic_client=fake_client)
+
+    decision = judge.judge(ticket, matches)
+    print(decision.model_dump_json(indent=2))
+
+    assert isinstance(decision, TriageDecision)
+    assert decision.matched_ticket_id == "ZD-100"
+    assert decision.confidence == 92
+    assert decision.recommended_action == "auto_resolve"
+    print("\n✅ Parsing works correctly")
+
+    print("\n" + "=" * 60)
+    print("TEST 2: Prompt actually includes the distance-is-a-heuristic warning")
+    print("=" * 60)
+    sent_prompt = fake_client.messages.last_call_kwargs["messages"][0]["content"]
+    assert "NOT proof" in sent_prompt
+    assert "ZD-100" in sent_prompt
+    assert "ZD-106" in sent_prompt
+    assert "0.0500" in sent_prompt or "0.05" in sent_prompt
+    print("✅ Prompt correctly includes both candidates, their distances, and the warning")
+
+    print("\n" + "=" * 60)
+    print("TEST 3: Judge correctly parses an escalate_to_human decision (no draft)")
+    print("=" * 60)
+    canned_escalate = {
+        "matched_ticket_id": None,
+        "confidence": 20,
+        "reasoning": "Both candidates share surface wording but no candidate's root cause matches.",
+        "recommended_action": "escalate_to_human",
+        "customer_facing_draft": None,
+    }
+    fake_client_2 = FakeAnthropicClient(canned_escalate)
+    judge_2 = TriageJudge(anthropic_client=fake_client_2)
+    decision_2 = judge_2.judge(ticket, matches)
+    print(decision_2.model_dump_json(indent=2))
+
+    assert decision_2.matched_ticket_id is None
+    assert decision_2.recommended_action == "escalate_to_human"
+    assert decision_2.customer_facing_draft is None
+    print("\n✅ Null/escalation case parses correctly")
+
+    print("\n" + "=" * 60)
+    print("ALL LLM JUDGE TESTS PASSED (no API key or network needed)")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    run()

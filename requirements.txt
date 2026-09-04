@@ -1,7 +1,9 @@
 fastapi
 uvicorn
 pydantic
-anthropic
+# anthropic
+groq
+tenacity
 requests
 python-dotenv
 chromadb

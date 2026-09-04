@@ -16,9 +16,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.chdir(os.path.join(os.path.dirname(__file__), ".."))
 
 from fastapi.testclient import TestClient
-from app.main import app, get_kb
+from app.main import app, get_kb, get_judge, get_action_sink, require_valid_zendesk_signature, require_valid_jira_signature, get_idempotency_store
+from app.idempotency import InMemoryIdempotencyStore
+from app.llm_judge import TriageJudge
 from app.knowledge_base import ResolvedTicketKB
 from tests.test_knowledge_base import DeterministicTestEmbedder
+# from tests.test_llm_judge import FakeAnthropicClient
+from tests.test_llm_judge import FakeGroqClient
+
+from tests.test_router import SpyActionSink
+from tests.test_webhook_auth import passthrough_auth
 
 TEST_DB_PATH = "/tmp/test_phase3_chroma"
 
@@ -42,7 +49,21 @@ def run():
         resolution="Known bug in report cache. Fix: clear browser cache.",
     )
 
-    app.dependency_overrides[get_kb] = override_get_kb
+    canned = {
+        "matched_ticket_id": "ZD-100",
+        "confidence": 85,
+        "reasoning": "test stub - not evaluating real reasoning here",
+        "recommended_action": "auto_resolve",
+        "customer_facing_draft": "stub draft",
+    }
+    app.dependency_overrides[get_judge] = lambda: TriageJudge(groq_client=FakeGroqClient(canned))
+    app.dependency_overrides[get_action_sink] = lambda: SpyActionSink()
+    app.dependency_overrides[require_valid_zendesk_signature] = passthrough_auth
+    app.dependency_overrides[require_valid_jira_signature] = passthrough_auth
+    app.dependency_overrides[get_idempotency_store] = lambda: InMemoryIdempotencyStore()
+    app.dependency_overrides[get_kb] = override_get_kb  
+
+   
     client = TestClient(app)
 
     with open("data/mock_zendesk_ticket.json") as f:
