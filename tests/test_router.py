@@ -23,6 +23,7 @@ class SpyActionSink:
     def __init__(self):
         self.customer_reply_calls = []
         self.triage_note_calls = []
+        self.resolution_comment_calls = []
 
     def post_customer_reply(self, ticket, draft):
         self.customer_reply_calls.append((ticket, draft))
@@ -31,6 +32,10 @@ class SpyActionSink:
     def post_internal_triage_note(self, ticket, decision, matches):
         self.triage_note_calls.append((ticket, decision, matches))
         return {"sink": "spy", "action": "triage_note_posted"}
+
+    def post_resolution_comment(self, ticket, draft):
+        self.resolution_comment_calls.append((ticket, draft))
+        return {"sink": "spy", "action": "resolution_comment_posted"}
 
 
 def _ticket():

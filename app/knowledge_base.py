@@ -28,7 +28,25 @@ class ResolvedTicketKB:
             metadata={"hnsw:space": "cosine"},  # cosine similarity, standard for text embeddings
         )
 
-    def add_resolved_ticket(self, ticket_id: str, subject: str, description: str, resolution: str):
+    def add_resolved_ticket(
+        self, ticket_id: str, subject: str, description: str, resolution: str,
+        origin: str = "seed", verified: bool = True,
+    ):
+        """
+        origin/verified track PROVENANCE - where this entry came from and
+        whether a human ever confirmed it's actually correct:
+          - origin="seed", verified=True: hand-curated seed data (default,
+            backward compatible with every existing call site)
+          - origin="auto_resolved", verified=False: written back
+            immediately after the system auto-resolved a ticket itself -
+            nobody has confirmed this was actually the right call yet
+          - origin="human_verified", verified=True: a human explicitly
+            confirmed this resolution via POST /tickets/{id}/resolve
+
+        This is visible provenance, not a full solution to the risk of a
+        wrong auto-resolution reinforcing itself as future "precedent" -
+        but it means that risk is at least inspectable rather than hidden.
+        """
         embedding_text = f"{subject}\n\n{description}"
         vector = self._embedder.embed([embedding_text])[0]
 
@@ -39,6 +57,8 @@ class ResolvedTicketKB:
             metadatas=[{
                 "subject": subject,
                 "resolution": resolution,
+                "origin": origin,
+                "verified": verified,
             }],
         )
 
@@ -50,14 +70,16 @@ class ResolvedTicketKB:
             n_results=top_k,
         )
 
-        # Chroma returns parallel lists; zip them into something readable
         matches = []
         for i in range(len(results["ids"][0])):
+            metadata = results["metadatas"][0][i]
             matches.append({
                 "ticket_id": results["ids"][0][i],
-                "subject": results["metadatas"][0][i]["subject"],
-                "resolution": results["metadatas"][0][i]["resolution"],
-                "distance": results["distances"][0][i],  # lower = more similar (cosine distance)
+                "subject": metadata["subject"],
+                "resolution": metadata["resolution"],
+                "distance": results["distances"][0][i],
+                "origin": metadata.get("origin", "seed"),
+                "verified": metadata.get("verified", True),
             })
         return matches
 

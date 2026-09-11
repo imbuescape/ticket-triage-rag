@@ -73,6 +73,63 @@ class MockActionSink:
         print(f"        confidence={decision.confidence}, reasoning={decision.reasoning[:120]}")
         return {"sink": "mock_jira", "action": "triage_note_posted", "ticket_id": ticket.source_id}
 
+class CompositeActionSink:
+    """
+    Real production composition: customer-facing replies go to Zendesk
+    (where customers live), internal triage notes go to Jira (where
+    engineers live). This is exactly what the ORIGINAL architecture
+    diagram specified from the very first message in this build - two
+    different destinations for two different kinds of output, not one
+    sink awkwardly handling both.
+    """
+
+    def __init__(self, customer_sink: TicketActionSink, escalation_sink: TicketActionSink):
+        self._customer_sink = customer_sink
+        self._escalation_sink = escalation_sink
+
+    def post_customer_reply(self, ticket: Ticket, draft: str) -> dict:
+        if ticket.source == "jira":
+            # A Jira-sourced ticket (an engineering bug report) has no
+            # real customer to reply to - ticket.source_id is a Jira
+            # issue key like "ENG-193", not a Zendesk ticket ID. Sending
+            # it to Zendesk would either error or, worse, silently PUT
+            # to an unrelated Zendesk ticket that happens to share that
+            # numeric ID. The sensible equivalent here is commenting the
+            # resolution directly onto the Jira issue that was already
+            # open. This couples CompositeActionSink to a Jira-specific
+            # method (post_resolution_comment) beyond the general
+            # TicketActionSink protocol - a deliberate, documented
+            # exception rather than forcing a false abstraction.
+            return self._escalation_sink.post_resolution_comment(ticket, draft)
+        return self._customer_sink.post_customer_reply(ticket, draft)
+
+    def post_internal_triage_note(
+        self, ticket: Ticket, decision: TriageDecision, matches: list[dict]
+    ) -> dict:
+        return self._escalation_sink.post_internal_triage_note(ticket, decision, matches)
+
+class SpyActionSink:
+    """Records calls instead of doing anything real - lets tests assert
+    exactly which sink method was called and with what."""
+
+    def __init__(self):
+        self.customer_reply_calls = []
+        self.triage_note_calls = []
+        self.resolution_comment_calls = []
+
+    def post_customer_reply(self, ticket, draft):
+        self.customer_reply_calls.append((ticket, draft))
+        return {"sink": "spy", "action": "customer_reply_posted"}
+
+    def post_internal_triage_note(self, ticket, decision, matches):
+        self.triage_note_calls.append((ticket, decision, matches))
+        return {"sink": "spy", "action": "triage_note_posted"}
+
+    def post_resolution_comment(self, ticket, draft):
+        self.resolution_comment_calls.append((ticket, draft))
+        return {"sink": "spy", "action": "resolution_comment_posted"}    
+
+
 
 def route(
     ticket: Ticket,
