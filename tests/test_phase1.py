@@ -30,7 +30,7 @@ print(zendesk_ticket.model_dump_json(indent=2))
 assert zendesk_ticket.source == "zendesk"
 assert zendesk_ticket.source_id == "48213"
 assert "Export to CSV" in zendesk_ticket.subject
-print("\n Zendesk normalization passed\n")
+print("\n✅ Zendesk normalization passed\n")
 
 
 # --- Test 2: Jira ADF parsing ---

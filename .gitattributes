@@ -1,0 +1,33 @@
+# ============================================================
+# 
+# Git attributes
+# ============================================================
+
+# Treat Jupyter notebooks as text for Git operations
+*.ipynb text diff=ipynb
+
+# nbstripout filter
+*.ipynb filter=nbstripout
+
+# Normalise shell scripts
+*.sh text eol=lf
+
+# Normalise Python source files
+*.py text eol=lf
+
+# Normalise Markdown
+*.md text eol=lf
+
+# Normalise YAML
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Normalise JSON
+*.json text eol=lf
+
+# Normalise configuration files
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.zpln filter=nbstripout
+*.ipynb diff=ipynb

@@ -1,0 +1,23 @@
+{
+  "webhookEvent": "jira:issue_created",
+  "issue": {
+    "key": "ENG-193",
+    "fields": {
+      "summary": "Rate limiter drops requests under 50 req/s",
+      "description": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "Load test shows ~12% of requests returning 429 even well under our documented rate limit"}
+            ]
+          }
+        ]
+      },
+      "reporter": {"emailAddress": "eng-oncall@ourcompany.com"},
+      "created": "2026-08-25T09:15:00.000+0000"
+    }
+  }
+}

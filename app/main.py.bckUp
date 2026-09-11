@@ -65,7 +65,10 @@ def get_judge() -> TriageJudge:
 
 @lru_cache
 def get_action_sink() -> TicketActionSink:
-    return CompositeActionSink(customer_sink=ZendeskActionSink(), escalation_sink=JiraActionSink())
+    return CompositeActionSink(
+        customer_sink=ZendeskActionSink(),
+        escalation_sink=JiraActionSink()
+        )
 
 
 @lru_cache
@@ -477,7 +480,8 @@ function escapeHtml(str) {
 }
 </script>
 </body>
-</html>"""
+</html>
+"""
 
 
 @app.get("/health")
